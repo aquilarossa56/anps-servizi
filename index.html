@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0a2f6b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ANPS Servizi">
 <title>ANPS Milano – Servizi Volontari</title>
 <style>
 :root{--bg:#f4f6fa;--c:#fff;--t:#14213d;--m:#5b6785;--p:#0a2f6b;--az:#2f8fd8;--pt:#fff;--a:#d9a400;--b:#dde3ee;--hl:#dbe7ff;--rd:#c62828;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -171,5 +177,6 @@ if(ADMINS.includes(u.email.toLowerCase()))user='__admin';else{const d=await db.c
 listen();draw()})}
 const rbTxt=(r,n)=>(+r>0&&n)?`${n} volontari × ${eur(+r)} = totale servizio ${eur(+r*n)}`:'Lascia vuoto se non c\'è rimborso.';
 function rbT(){$('#rbt').textContent=rbTxt($('#frb').value,draft.vols.length)}
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 boot();
 </script></body></html>
