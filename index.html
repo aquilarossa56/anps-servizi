@@ -55,13 +55,7 @@ const today=iso(new Date()),Y=new Date().getFullYear();
 const fmt=d=>d.split('-').reverse().join('/');
 const hrs=s=>{let[a,b]=s.from.split(':').map(Number),[c,d]=s.to.split(':').map(Number);let h=(c*60+d-a*60-b)/60;if(h<0)h+=24;return Math.round(h*100)/100};
 let S;try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
-if(!S){const off=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
-S={vol:['Rossi Mario','Bianchi Luca','Verdi Anna','Neri Paolo','Galli Sara'],srv:[
-{id:1,d:off(-20),from:'08:00',to:'13:00',place:'Parco Sempione',ev:'Vigilanza parco',type:'Parchi',rit:RIT[0],vols:['Rossi Mario','Verdi Anna']},
-{id:4,d:off(-45),from:'15:00',to:'19:00',place:'Milano centro',ev:'Controllo viabilità',type:'ASA',rit:RIT[0],vols:['Rossi Mario','Galli Sara','Neri Paolo']},
-{id:2,d:off(1),from:'09:00',to:'14:00',place:'Piazza Duomo',ev:'Festa della Polizia',type:'Rappresentanza',rit:RIT[0],vols:['Bianchi Luca','Rossi Mario','Galli Sara']},
-{id:3,d:off(9),from:'14:00',to:'19:30',place:'Figino',ev:'Esercitazione',type:'Protezione Civile',rit:RIT[1],vols:['Neri Paolo','Verdi Anna']}]}}
-{const RB={1:12,2:8,3:0,4:10};S.srv.forEach(s=>{if(s.rimb==null)s.rimb=RB[s.id]||0})}
+if(!S)S={vol:[],srv:[],mail:{}};S.mail=S.mail||{};
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 let user=null,tab='cal',month=new Date(new Date().getFullYear(),new Date().getMonth(),1),sel=null,draft={vols:[]};
 const isAdm=()=>user==='__admin';
@@ -90,15 +84,17 @@ return `${remind()}<div class="two"><div class="card"><div class="cal"><button o
 ${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${isAdm()?form():''}`}
 function card(s){return `<div class="srv"><b>${s.from}–${s.to} · ${esc(s.type)}</b>${esc(s.ev)}<div class="m">📍 ${esc(s.place)} · Ritrovo: ${esc(s.rit)}${isAdm()&&s.rimb?' · 💶 '+eur(s.rimb)+' per ogni volontario':''}</div>
 <ol>${s.vols.map((v,i)=>`<li class="${i?'':'r'}">${esc(v)}${i?'':' — <span class="tag r">Responsabile</span>'}</li>`).join('')}</ol>
-${isAdm()?`<button onclick="editSrv(${s.id})">✏️ Modifica</button> <button onclick="wa(${s.id})">💬 WhatsApp</button> <button class="del" onclick="delSrv(${s.id})">Elimina</button>`:''}</div>`}
+${isAdm()||s.vols.includes(user)?`<button class="pri" onclick="ord(${s.id})">📄 Scarica ordinanza PDF</button>`:''} ${isAdm()?`<button onclick="mail(${s.id})">✉️ Email</button> <button onclick="editSrv(${s.id})">✏️ Modifica</button> <button onclick="wa(${s.id})">💬 WhatsApp</button> <button class="del" onclick="delSrv(${s.id})">Elimina</button>`:''}</div>`}
 function form(){const d=draft,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frm"><h2>${d.id?'Modifica servizio':'Nuovo servizio'}</h2><div class="f">
 <label>Data<input type="date" id="fd" value="${d.d||today}" min="${d.id?'':today}"></label>
 <label>Tipo di servizio<select id="ft">${sl(TIPI,d.t)}</select></label>
 <label>Dalle ore<input type="time" id="ff" value="${d.from||'08:00'}"></label>
 <label>Alle ore<input type="time" id="fto" value="${d.to||'13:00'}"></label>
-<label>Luogo del servizio<input id="fp" value="${esc(d.p||'')}" placeholder="es. Parco Sempione"></label>
+<label>In località<input id="fp" value="${esc(d.p||'')}" placeholder="es. Parco Sempione"></label>
 <label>Manifestazione<input id="fe" value="${esc(d.e||'')}" placeholder="es. Festa della Polizia"></label>
 <label class="w">Rimborso del servizio (€) – lo stesso importo per ogni volontario partecipante<input type="number" min="0" step="0.01" id="frb" value="${d.rb||''}" placeholder="es. 10,00" oninput="rbT()"><span class="m" id="rbt">${rbTxt(d.rb,d.vols.length)}</span></label>
+<label>Ora del ritrovo<input type="time" id="fh" value="${d.h||''}"></label>
+<label class="w">Su richiesta di<input id="fq" value="${esc(d.q||'')}" placeholder="es. Comune di Milano"></label>
 <label>Ritrovo<select id="fr" onchange="keep()">${sl(RIT,d.r)}</select></label>
 <label style="display:${d.r===RIT[2]?'flex':'none'}">Altro ritrovo<input id="fo" value="${esc(d.o||'')}"></label>
 <div class="w"><span class="m">Volontari (il primo è il Responsabile)</span><br>
@@ -106,12 +102,12 @@ ${d.vols.map((v,i)=>`<span class="tag ${i?'':'r'}">${i?'':'★ '}${esc(v)} <a hr
 <br><select id="fv"><option value="">+ Aggiungi volontario</option>${S.vol.filter(v=>!d.vols.includes(v)).map(v=>`<option>${esc(v)}</option>`).join('')}</select>
 <button onclick="const x=$('#fv').value;keep(true);if(x){draft.vols.push(x);draw()}">Aggiungi</button></div>
 <div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id?'<button onclick="draft={vols:[]};draw()">Annulla</button>':''}</div></div></div>`}
-function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb')});if(!q)draw()}
+function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb'),h:g('fh'),q:g('fq')});if(!q)draw()}
 function addSrv(){keep(true);const d=draft,rit=d.r===RIT[2]?(d.o||'Altro'):d.r;
 if(!d.d||!d.vols.length)return alert('Inserisci data e almeno un volontario');
-const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:+d.rb||0};
+const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:+d.rb||0,oraRit:d.h||'',req:d.q||''};
 put(o);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};draw()}
-function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
+function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
 function wa(id){const s=S.srv.find(x=>x.id===id);open('https://wa.me/?text='+encodeURIComponent(`ANPS Milano – Servizio ${fmt(s.d)} ${s.from}-${s.to}\n${s.type}: ${s.ev||s.place}\nLuogo: ${s.place}\nRitrovo: ${s.rit}\nResponsabile: ${s.vols[0]}\nVolontari: ${s.vols.join(', ')}`))}
 function delSrv(id){if(confirm('Eliminare il servizio?'))rm(id)}
 let flt={v:'',t:'',from:Y+'-01-01',to:Y+'-12-31'};
@@ -142,14 +138,14 @@ return `<div class="card fl"><select onchange="flt.v=this.value;draw()"><option 
 <div class="card"><h2>Registro servizi</h2><div class="tw"><table><tr><th>Data</th><th>Volontario</th><th>Tipo</th><th>Ore</th><th>Rimborso</th><th>Luogo / Manifestazione</th></tr>
 ${rows.map(r=>`<tr><td>${fmt(r.s.d)}</td><td>${esc(r.v)}</td><td><select onchange="setT(${r.s.id},this.value)">${TIPI.map(t=>`<option ${t===r.s.type?'selected':''}>${t}</option>`).join('')}</select></td><td>${hrs(r.s)}</td><td>${eur(r.s.rimb||0)}</td><td>${esc(r.s.place)}${r.s.ev?' – '+esc(r.s.ev):''}</td></tr>`).join('')}</table></div></div>`}
 function setT(id,t){put({...S.srv.find(s=>s.id===id),type:t})}
-function volp(){return `<div class="card"><h2>Volontari</h2><input id="nv" placeholder="Cognome Nome"><button class="pri" onclick="addV()">Aggiungi</button>
-<ul>${S.vol.map((v,i)=>`<li>${esc(v)} <button class="del" onclick="delV(${i})">✕</button></li>`).join('')}</ul></div>`}
-function addV(){const v=$('#nv').value.trim();if(v&&!S.vol.includes(v))putV(v)}
+function volp(){return `<div class="card"><h2>Volontari</h2><input id="nv" placeholder="Cognome Nome"> <input id="ne" type="email" placeholder="Email (per ordinanza)"><button class="pri" onclick="addV()">Aggiungi</button>
+<ul>${S.vol.map((v,i)=>`<li>${esc(v)} <span class="m">${esc((S.mail||{})[v]||"senza email")}</span> <button class="del" onclick="delV(${i})">✕</button></li>`).join('')}</ul></div>`}
+function addV(){const v=$('#nv').value.trim(),e=$('#ne').value.trim();if(v&&(!S.vol.includes(v)||e))putV(v,e)}
 function delV(i){if(confirm('Rimuovere il volontario?'))rmV(S.vol[i])}
 const lib=u=>new Promise((r,j)=>{const s=document.createElement('script');s.src=u;s.onload=r;s.onerror=j;document.head.appendChild(s)});
 let beeped={};
 function beep(n=3){try{const c=new(window.AudioContext||window.webkitAudioContext)();c.resume();for(let i=0;i<n;i++){const o=c.createOscillator(),g=c.createGain();o.frequency.value=880;g.gain.value=.25;o.connect(g);g.connect(c.destination);o.start(c.currentTime+i*.4);o.stop(c.currentTime+i*.4+.2)}}catch(e){}}
-function remind(){if(isAdm())return'';const t=new Date();t.setDate(t.getDate()+1);const tm=iso(t),L=S.srv.filter(s=>s.vols.includes(user)&&(s.d===tm||s.d===today));if(!L.length)return'';
+function remind(){if(isAdm())return admRem();const t=new Date();t.setDate(t.getDate()+1);const tm=iso(t),L=S.srv.filter(s=>s.vols.includes(user)&&(s.d===tm||s.d===today));if(!L.length)return'';
 const k=L.map(s=>s.id).join();if(!beeped[k]){beeped[k]=1;setTimeout(beep,300)}
 return `<div class="card" style="border:2px solid var(--a)"><h2>🔔 Promemoria servizio <button onclick="beep()">🔊 Riascolta bip</button></h2>${L.map(s=>`<div><b>${s.d===today?'OGGI':'DOMANI'}</b> ${fmt(s.d)} · ${s.from}–${s.to} · ${esc(s.type)} · ${esc(s.place)} · Ritrovo: ${esc(s.rit)}</div>`).join('')}</div>`}
 /* ===== Firebase / dati ===== */
@@ -158,7 +154,7 @@ const ADMINS=(window.ADMIN_EMAILS||[]).map(x=>x.toLowerCase());
 let db=null,auth=null,un=[];const vid=n=>n.replace(/\//g,'-');
 function put(s){if(db)db.collection('servizi').doc(String(s.id)).set(s).catch(e=>alert(e.message));else{const i=S.srv.findIndex(x=>x.id===s.id);i<0?S.srv.push(s):S.srv[i]=s;save();draw()}}
 function rm(id){if(db)db.collection('servizi').doc(String(id)).delete();else{S.srv=S.srv.filter(s=>s.id!==id);save();draw()}}
-function putV(n){if(db)db.collection('volontari').doc(vid(n)).set({name:n});else{S.vol.push(n);S.vol.sort();save();draw()}}
+function putV(n,e){e=e||(S.mail||{})[n]||'';if(db)db.collection('volontari').doc(vid(n)).set({name:n,email:e});else{if(!S.vol.includes(n))S.vol.push(n);(S.mail=S.mail||{})[n]=e;S.vol.sort();save();draw()}}
 function rmV(n){if(db)db.collection('volontari').doc(vid(n)).delete();else{S.vol=S.vol.filter(x=>x!==n);save();draw()}}
 function out(){if(auth)auth.signOut();else{user=null;draw()}}
 function login(){if(!CFG)return demoLogin();$('#who').innerHTML='';$('#app').innerHTML=`<div class="card login"><img src="${document.querySelector('header img').src}" height="110" alt="ANPS"><h2>Accesso</h2>
@@ -168,15 +164,40 @@ function login(){if(!CFG)return demoLogin();$('#who').innerHTML='';$('#app').inn
 async function au(m){const e=$('#em').value.trim(),p=$('#pw').value;try{if(m==='in')await auth.signInWithEmailAndPassword(e,p);else if(m==='up')await auth.createUserWithEmailAndPassword(e,p);else{await auth.sendPasswordResetEmail(e);alert('Ti ho inviato una email per reimpostare la password')}}catch(x){alert('Errore: '+x.message)}}
 function pick(){$('#who').innerHTML='<button onclick="out()">Esci</button>';$('#app').innerHTML=`<div class="card login"><h2>Chi sei?</h2><p class="m">Scegli il tuo nominativo. Se non compare, chiedi all'amministratore di inserirti.</p><select id="pk"><option value="">—</option>${S.vol.map(v=>`<option>${esc(v)}</option>`).join('')}</select><button class="pri" onclick="pk()">Conferma</button></div>`}
 async function pk(){const n=$('#pk').value;if(!n)return;await db.collection('users').doc(auth.currentUser.uid).set({name:n,email:auth.currentUser.email});user=n;draw()}
-function listen(){un.forEach(f=>f());un=[db.collection('servizi').onSnapshot(q=>{if($('#frm'))keep(true);S.srv=q.docs.map(x=>x.data());draw()}),db.collection('volontari').onSnapshot(q=>{if($('#frm'))keep(true);S.vol=q.docs.map(x=>x.data().name).sort();draw()})]}
+function listen(){un.forEach(f=>f());un=[db.collection('servizi').onSnapshot(q=>{if($('#frm'))keep(true);S.srv=q.docs.map(x=>x.data());draw()}),db.collection('volontari').onSnapshot(q=>{if($('#frm'))keep(true);S.mail={};q.docs.forEach(x=>S.mail[x.data().name]=x.data().email||'');S.vol=q.docs.map(x=>x.data().name).sort();draw()})];if(isAdm())un.push(db.collection('users').onSnapshot(q=>{S.mail={};q.docs.forEach(x=>{const u=x.data();S.mail[u.name]=u.email})}))}
 async function boot(){if(!CFG)return draw();
 try{for(const u of ['app','auth','firestore'])await lib('https://www.gstatic.com/firebasejs/10.12.2/firebase-'+u+'-compat.js')}catch(e){return alert('Impossibile caricare Firebase')}
-firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();S={vol:[],srv:[]};
+firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();S={vol:[],srv:[],mail:{}};
 auth.onAuthStateChanged(async u=>{if(!u){un.forEach(f=>f());un=[];user=null;return draw()}
 if(ADMINS.includes(u.email.toLowerCase()))user='__admin';else{const d=await db.collection('users').doc(u.uid).get();user=d.exists?d.data().name:'__pick'}
 listen();draw()})}
 const rbTxt=(r,n)=>(+r>0&&n)?`${n} volontari × ${eur(+r)} = totale servizio ${eur(+r*n)}`:'Lascia vuoto se non c\'è rimborso.';
 function rbT(){$('#rbt').textContent=rbTxt($('#frb').value,draft.vols.length)}
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+/* ===== Ordinanza ===== */
+const ORD_TXT="Prima di iniziare il servizio compilare apposito libretto uscita mezzi, verificare e firmare foglio inventario (in caso di ammanchi di materiale in dotazione sarà responsabile l'ultimo equipaggio in servizio che non ha rilevato la mancanza).\n\nAl termine del servizio il Responsabile deve inoltrare alla seguente e-mail odv.assopolizia.mi@gmail.com gli eventuali fogli di rapporto ed eventuali foto.";
+function ordRows(s){return [['Servizio',s.type+(s.ev?' - '+s.ev:'')],['Data del servizio',fmt(s.d)],['Orario','dalle ore '+s.from+' alle ore '+s.to],['In località',s.place||'-'],['Su richiesta di',s.req||'-'],['Punto di ritrovo',s.rit+(s.oraRit?' - ore '+s.oraRit:'')]]}
+function admRem(){const t=new Date();t.setDate(t.getDate()+1);const L=S.srv.filter(s=>s.d===iso(t));if(!L.length)return'';return `<div class="card" style="border:2px solid var(--a)"><h2>📧 Ordinanze da inviare (servizi di domani)</h2>${L.map(s=>`<div style="margin:4px 0">${s.from}–${s.to} · ${esc(s.type)} · ${esc(s.place)} <button onclick="ord(${s.id})">📄 PDF</button> <button class="pri" onclick="mail(${s.id})">✉️ Email volontari</button></div>`).join('')}</div>`}
+async function ord(id){const s=S.srv.find(x=>x.id===id);if(!s||(!isAdm()&&!s.vols.includes(user)))return;
+if(!window.PDFLib)try{await lib('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js')}catch(e){return alert('Impossibile caricare il modulo PDF (serve internet)')}
+const{PDFDocument,StandardFonts,rgb}=PDFLib,pd=await PDFDocument.create(),pg=pd.addPage([595,842]),F=await pd.embedFont(StandardFonts.Helvetica),B=await pd.embedFont(StandardFonts.HelveticaBold),bl=rgb(.04,.18,.42),tx=rgb(.08,.13,.24);let y=770;
+const im=await pd.embedPng(await fetch(document.querySelector('header img').src).then(r=>r.arrayBuffer()));pg.drawImage(im,{x:40,y:722,width:im.width*90/im.height,height:90});
+const W=(t,f,z,w)=>{const o=[];let l='';for(const k of t.split(' ')){const x=l?l+' '+k:k;if(f.widthOfTextAtSize(x,z)>w&&l){o.push(l);l=k}else l=x}if(l)o.push(l);return o};
+const T=(t,x,z,f,c)=>pg.drawText(t,{x,y,size:z,font:f,color:c||tx}),C=(t,z,f,c)=>pg.drawText(t,{x:(595-f.widthOfTextAtSize(t,z))/2,y,size:z,font:f,color:c||tx});
+T('ANPS MILANO',150,24,B,bl);y-=20;T('Associazione Nazionale Polizia di Stato',150,12,F);y-=30;
+pg.drawRectangle({x:40,y:y-8,width:515,height:3,color:rgb(.18,.56,.85)});y-=52;
+C('ORDINANZA',30,B,bl);y-=24;C(s.type.toUpperCase(),16,B);y-=44;
+ordRows(s).forEach(r=>{T(r[0]+':',50,12,B,bl);for(const l of W(r[1],F,12,340)){T(l,205,12,F);y-=18}y-=6});
+y-=10;T('SONO AUTORIZZATI AL SERVIZIO I SEGUENTI OPERATORI:',50,12,B,bl);y-=24;
+s.vols.forEach((v,i)=>{T((i+1)+'.  '+v+(i?'':'  (Responsabile)'),70,12.5,i?F:B);y-=20});y-=14;
+const Ls=ORD_TXT.split('\n\n').map(p=>W(p,F,11.5,485)),n=Ls.reduce((a,l)=>a+l.length,0),bh=n*15+Ls.length*10+16;
+pg.drawRectangle({x:40,y:y-bh+14,width:515,height:bh,color:rgb(.92,.95,1),borderColor:bl,borderWidth:1});y-=6;
+Ls.forEach(l=>{l.forEach(r=>{T(r,52,11.5,F);y-=15});y-=10});
+pg.drawText("Documento generato il "+fmt(today)+" - ANPS Milano",{x:190,y:30,size:9,font:F,color:rgb(.4,.45,.55)});
+const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([await pd.save()],{type:'application/pdf'}));a.download='ordinanza_'+s.d+'.pdf';a.click()}
+function mail(id){const s=S.srv.find(x=>x.id===id),em=s.vols.map(v=>(S.mail||{})[v]).filter(Boolean);
+if(!em.length&&!confirm('Non trovo le email dei volontari (si vedono solo dopo la loro registrazione). Aprire comunque la mail?'))return;
+const txt='ORDINANZA DI SERVIZIO\n\n'+ordRows(s).map(r=>r[0]+': '+r[1]).join('\n')+'\n\nSono autorizzati al servizio i seguenti operatori:\n'+s.vols.map((v,i)=>(i+1)+'. '+v+(i?'':' (Responsabile)')).join('\n')+'\n\n'+ORD_TXT+'\n\nANPS Milano';
+location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&subject='+encodeURIComponent('Ordinanza di servizio '+fmt(s.d)+' - '+s.type)+'&body='+encodeURIComponent(txt)}
 boot();
 </script></body></html>
