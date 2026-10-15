@@ -49,7 +49,12 @@ const $=s=>document.querySelector(s),K='anps_v2',ADMIN_PIN='1234';
 const TIPI=['Parchi','Protezione Civile','ASA','Rappresentanza','Altri servizi'];
 const RIT=['Caserma via Cagni','Figino via F.lli Zanzottera','Altro…'];
 const CARS=['Fiat Panda EH308VW','Fiat Punto CC819JB','Smart FY866YG'];
-const nextN=d=>1+Math.max(0,...S.srv.filter(s=>s.d.slice(0,4)===String(d).slice(0,4)).map(s=>+s.n||0));
+const lt=(a,b)=>(a.d+a.from)<(b.d+b.from)||((a.d+a.from)===(b.d+b.from)&&a.id<b.id);
+const base=y=>Math.max(0,...S.srv.filter(x=>x.d.slice(0,4)===y&&x.n).map(x=>x.n));
+const numOf=s=>s.n||base(s.d.slice(0,4))+1+S.srv.filter(x=>x.d.slice(0,4)===s.d.slice(0,4)&&!x.n&&x.id!==s.id&&lt(x,s)).length;
+const dn=d=>{const o=S.srv.find(x=>x.id===d.id),dd=d.d||today;return numOf({id:d.id||1e15,d:dd,from:d.from||'08:00',n:o&&o.n&&dd<=today?o.n:0})};
+const frz=new Set();
+function freezePast(){S.srv.filter(s=>!s.n&&s.d<=today&&!frz.has(s.id)).sort((a,b)=>lt(a,b)?-1:1).map(s=>[s,numOf(s)]).forEach(([s,n])=>{frz.add(s.id);if(db)put({...s,n});else{s.n=n;save()}})}
 const MESI=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -67,7 +72,7 @@ function demoLogin(){$('#who').innerHTML='';$('#app').innerHTML=`<div class="car
 <button class="pri" onclick="if($('#lv').value){user=$('#lv').value;draw()}">Entra</button><hr>
 <input id="pin" type="password" placeholder="PIN amministratore"><button class="pri" onclick="if($('#pin').value===ADMIN_PIN){user='__admin';draw()}else alert('PIN errato')">Admin</button>
 <p class="m">Demo: PIN admin 1234</p></div>`}
-function draw(){if(!user)return login();if(user==='__pick')return pick();
+function draw(){if(!user)return login();if(isAdm())freezePast();if(user==='__pick')return pick();
 $('#who').innerHTML=`<small>${isAdm()?'Amministratore':esc(user)}</small> <button onclick="out()">Esci</button>`;
 const tabs=[['cal','Calendario']].concat(isAdm()?[['stat','Statistiche'],['vol','Volontari']]:[]);
 $('#app').innerHTML=`<nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';draw()">${t[1]}</button>`).join('')}</nav><div id="v"></div>`;
@@ -83,12 +88,12 @@ return `${remind()}<div class="two"><div class="card"><div class="cal"><button o
 <div class="grid">${['L','M','M','G','V','S','D'].map(x=>`<div class="dow">${x}</div>`).join('')}${cells}</div>
 <p class="m">I giorni evidenziati hanno un servizio. Clicca per i dettagli.</p></div>
 <div><div class="card"><h2>${sel?'Servizi del '+fmt(sel):'Seleziona un giorno'}</h2>${list.map(card).join('')||'<span class="m">Nessun servizio selezionato.</span>'}</div>
-${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${isAdm()?form():''}`}
-function card(s){return `<div class="srv"><b>${s.from}–${s.to} · ${esc(s.type)}</b>${esc(s.ev)}<div class="m">${s.n?'Ord. N. '+s.n+'/'+s.d.slice(0,4)+' · ':''}📍 ${esc(s.place)} · Ritrovo: ${esc(s.rit)}${s.cars&&s.cars.length?' · 🚗 '+esc(s.cars.join(', ')):''}${isAdm()&&s.rimb?' · 💶 '+eur(s.rimb)+' per ogni volontario':''}</div>
+${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} · N. ${numOf(s)}/${s.d.slice(0,4)} · ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${isAdm()?reg()+form():''}`}
+function card(s){return `<div class="srv"><b style="font-size:17px">📅 ${fmt(s.d)} · Ord. N. ${numOf(s)}/${s.d.slice(0,4)}</b><b>${s.from}–${s.to} · ${esc(s.type)}</b>${esc(s.ev)}<div class="m">📍 ${esc(s.place)} · Ritrovo: ${esc(s.rit)}${s.cars&&s.cars.length?' · 🚗 '+esc(s.cars.join(', ')):''}${isAdm()&&s.rimb?' · 💶 '+eur(s.rimb)+' per ogni volontario':''}</div>
 <ol>${s.vols.map((v,i)=>`<li class="${i?'':'r'}">${esc(v)}${i?'':' — <span class="tag r">Responsabile</span>'}</li>`).join('')}</ol>
 ${isAdm()||(s.vols.includes(user)&&s.d===today)?`<button class="pri" onclick="ord(${s.id})">📄 Scarica ordinanza PDF</button>`:''} ${isAdm()?`<button onclick="mail(${s.id})">✉️ Email</button> <button onclick="editSrv(${s.id})">✏️ Modifica</button> <button onclick="wa(${s.id})">💬 WhatsApp</button> <button class="del" onclick="delSrv(${s.id})">Elimina</button>`:''}</div>`}
 function form(){const d=draft,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frm"><h2>${d.id?'Modifica servizio':'Nuovo servizio'}</h2><div class="f">
-<label>Data<input type="date" id="fd" value="${d.d||today}" min="${d.id?'':today}"></label>
+<label>Data<input type="date" id="fd" onchange="keep()" value="${d.d||today}" min="${d.id?'':today}"></label>
 <label>Tipo di servizio<select id="ft">${sl(TIPI,d.t)}</select></label>
 <label>Dalle ore<input type="time" id="ff" value="${d.from||'08:00'}"></label>
 <label>Alle ore<input type="time" id="fto" value="${d.to||'13:00'}"></label>
@@ -97,7 +102,7 @@ function form(){const d=draft,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}
 <label class="w">Rimborso del servizio (€) – lo stesso importo per ogni volontario partecipante<input type="number" min="0" step="0.01" id="frb" value="${d.rb||''}" placeholder="es. 10,00" oninput="rbT()"><span class="m" id="rbt">${rbTxt(d.rb,d.vols.length)}</span></label>
 <label>Ora del ritrovo<input type="time" id="fh" value="${d.h||''}"></label>
 <label class="w">Su richiesta di<input id="fq" value="${esc(d.q||'')}" placeholder="es. Comune di Milano"></label>
-<label>Ord. N. (progressivo, si azzera ogni anno)<input type="number" min="1" id="fn" value="${d.n||nextN(d.d||today)}"><span class="m">Ord. N. ${d.n||nextN(d.d||today)}/${(d.d||today).slice(0,4)}</span></label>
+<label>Numero ordinanza<input disabled value="Ord. N. ${dn(d)}/${(d.d||today).slice(0,4)}"><span class="m">Automatico: segue la data del servizio. I servizi già svolti restano bloccati.</span></label>
 <label>Ritrovo<select id="fr" onchange="keep()">${sl(RIT,d.r)}</select></label>
 <label style="display:${d.r===RIT[2]?'flex':'none'}">Altro ritrovo<input id="fo" value="${esc(d.o||'')}"></label>
 <div class="w"><span class="m">Volontari (il primo è il Responsabile)</span><br>
@@ -109,12 +114,12 @@ ${(d.cars||[]).map((v,i)=>`<span class="tag">🚗 ${esc(v)} <a href="#" onclick=
 <br><select id="fc"><option value="">+ Scegli auto</option>${CARS.filter(v=>!(d.cars||[]).includes(v)).map(v=>`<option>${v}</option>`).join('')}</select>
 <button onclick="const x=$('#fc').value;keep(true);if(x){(draft.cars=draft.cars||[]).push(x);draw()}">Aggiungi auto</button></div>
 <div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id?'<button onclick="draft={vols:[]};draw()">Annulla</button>':''}</div></div></div>`}
-function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb'),h:g('fh'),q:g('fq'),n:g('fn')});if(!q)draw()}
+function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb'),h:g('fh'),q:g('fq')});if(!q)draw()}
 function addSrv(){keep(true);const d=draft,rit=d.r===RIT[2]?(d.o||'Altro'):d.r;
 if(!d.d||!d.vols.length)return alert('Inserisci data e almeno un volontario');
-const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:+d.rb||0,oraRit:d.h||'',req:d.q||'',n:+d.n||nextN(d.d),cars:[...(d.cars||[])]};
+const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:+d.rb||0,oraRit:d.h||'',req:d.q||'',cars:[...(d.cars||[])]};const old=S.srv.find(x=>x.id===d.id);if(old&&old.n&&o.d<=today)o.n=old.n;
 put(o);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};draw()}
-function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',n:s.n||'',cars:[...(s.cars||[])],vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
+function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',cars:[...(s.cars||[])],vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
 function wa(id){const s=S.srv.find(x=>x.id===id);open('https://wa.me/?text='+encodeURIComponent(`ANPS Milano – Servizio ${fmt(s.d)} ${s.from}-${s.to}\n${s.type}: ${s.ev||s.place}\nLuogo: ${s.place}\nRitrovo: ${s.rit}\nResponsabile: ${s.vols[0]}\nVolontari: ${s.vols.join(', ')}`))}
 function delSrv(id){if(confirm('Eliminare il servizio?'))rm(id)}
 let flt={v:'',t:'',from:Y+'-01-01',to:Y+'-12-31'};
@@ -143,7 +148,7 @@ return `<div class="card fl"><select onchange="flt.v=this.value;draw()"><option 
 <div class="two"><div class="card"><h2>Classifica ore</h2>${A.map((r,i)=>`<div>${i+1}. ${esc(r[0])} — <b>${r[1].h} h</b> · ${eur(r[1].e)}<div class="bar" style="width:${r[1].h/max*100}%"></div></div>`).join('')||'<span class="m">Nessun dato.</span>'}</div>
 <div class="card"><h2>Ore per tipo di servizio</h2>${Object.entries(byT).map(([t,h])=>`<div>${t}: <b>${h} h</b></div>`).join('')}</div></div>
 <div class="card"><h2>Registro servizi</h2><div class="tw"><table><tr><th>Data</th><th>Volontario</th><th>Tipo</th><th>Ore</th><th>Rimborso</th><th>Luogo / Manifestazione</th></tr>
-${rows.map(r=>`<tr><td>${fmt(r.s.d)}</td><td>${esc(r.v)}</td><td><select onchange="setT(${r.s.id},this.value)">${TIPI.map(t=>`<option ${t===r.s.type?'selected':''}>${t}</option>`).join('')}</select></td><td>${hrs(r.s)}</td><td>${eur(r.s.rimb||0)}</td><td>${esc(r.s.place)}${r.s.ev?' – '+esc(r.s.ev):''}</td></tr>`).join('')}</table></div></div>`}
+${rows.map(r=>`<tr><td>${fmt(r.s.d)} <b>N. ${numOf(r.s)}</b></td><td>${esc(r.v)}</td><td><select onchange="setT(${r.s.id},this.value)">${TIPI.map(t=>`<option ${t===r.s.type?'selected':''}>${t}</option>`).join('')}</select></td><td>${hrs(r.s)}</td><td>${eur(r.s.rimb||0)}</td><td>${esc(r.s.place)}${r.s.ev?' – '+esc(r.s.ev):''}</td></tr>`).join('')}</table></div></div>`}
 function setT(id,t){put({...S.srv.find(s=>s.id===id),type:t})}
 function volp(){return `<div class="card"><h2>Volontari</h2><input id="nv" placeholder="Cognome Nome"> <input id="ne" type="email" placeholder="Email (per ordinanza)"><button class="pri" onclick="addV()">Aggiungi</button>
 <ul>${S.vol.map((v,i)=>`<li>${esc(v)} <span class="m">${esc((S.mail||{})[v]||"senza email")}</span> <button class="del" onclick="delV(${i})">✕</button></li>`).join('')}</ul></div>`}
@@ -184,6 +189,7 @@ if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceW
 /* ===== Ordinanza ===== */
 const ORD_TXT="Prima di iniziare il servizio compilare apposito libretto uscita mezzi, verificare e firmare foglio inventario (in caso di ammanchi di materiale in dotazione sarà responsabile l'ultimo equipaggio in servizio che non ha rilevato la mancanza).\n\nAl termine del servizio il Responsabile deve inoltrare alla seguente e-mail odv.assopolizia.mi@gmail.com gli eventuali fogli di rapporto ed eventuali foto.";
 function ordRows(s){return [['Servizio',s.type+(s.ev?' - '+s.ev:'')],['Data del servizio',fmt(s.d)],['Orario','dalle ore '+s.from+' alle ore '+s.to],['In località',s.place||'-'],['Su richiesta di',s.req||'-'],['Punto di ritrovo',s.rit+(s.oraRit?' - ore '+s.oraRit:'')]]}
+function reg(){const y=today.slice(0,4),L=S.srv.filter(s=>s.d.startsWith(y)).sort((a,b)=>numOf(a)-numOf(b)||(lt(a,b)?-1:1));return `<div class="card" id="reg"><h2>Registro ordinanze ${y}</h2><div class="tw"><table><tr><th>Ord. N.</th><th>Data</th><th>Orario</th><th>Tipo</th><th>Località</th></tr>${L.map(s=>`<tr><td><b>${numOf(s)}/${y}</b>${s.n?' 🔒':''}</td><td><b>${fmt(s.d)}</b></td><td>${s.from}–${s.to}</td><td>${esc(s.type)}</td><td>${esc(s.place)}</td></tr>`).join('')||'<tr><td colspan=5 class=m>Nessun servizio</td></tr>'}</table></div><div class="m">🔒 = numero bloccato (servizio già svolto o in corso)</div></div>`}
 function admRem(){const t=new Date();t.setDate(t.getDate()+1);const L=S.srv.filter(s=>s.d===iso(t));if(!L.length)return'';return `<div class="card" style="border:2px solid var(--a)"><h2>📧 Ordinanze da inviare (servizi di domani)</h2>${L.map(s=>`<div style="margin:4px 0">${s.from}–${s.to} · ${esc(s.type)} · ${esc(s.place)} <button onclick="ord(${s.id})">📄 PDF</button> <button class="pri" onclick="mail(${s.id})">✉️ Email volontari</button></div>`).join('')}</div>`}
 async function ord(id){const s=S.srv.find(x=>x.id===id);if(!s||(!isAdm()&&(!s.vols.includes(user)||s.d!==today)))return;
 if(!window.PDFLib)try{await lib('https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js')}catch(e){return alert('Impossibile caricare il modulo PDF (serve internet)')}
@@ -194,7 +200,7 @@ const T=(t,x,z,f,c)=>pg.drawText(t,{x,y,size:z,font:f,color:c||tx}),C=(t,z,f,c)=
 for(const l of W("Associazione Nazionale Polizia di Stato O.d.V. Gruppo di Volontariato e Protezione Civile Milano",B,14,410)){T(l,135,14,B,bl);y-=18}y-=4;
 for(const l of W("Sede legale III° Reparto Mobile Polizia di Stato Via Umberto Cagni 21 - Milano",F,10.5,410)){T(l,135,10.5,F);y-=14}
 y=715;pg.drawRectangle({x:40,y,width:515,height:3,color:rgb(.18,.56,.85)});y-=42;
-C('ORDINANZA',26,B,bl);y-=24;C('Ord. N. '+(s.n||'-')+'/'+s.d.slice(0,4),16,B);y-=34;
+C('ORDINANZA',26,B,bl);y-=24;C('Ord. N. '+numOf(s)+'/'+s.d.slice(0,4),16,B);y-=34;
 const R=[['Tipo di servizio',s.type],['Servizio',s.ev||'-'],['Data del servizio',fmt(s.d)],['Orario','dalle ore '+s.from+' alle ore '+s.to],['In località',s.place||'-'],['Su richiesta di',s.req||'-'],['Punto di ritrovo',s.rit+(s.oraRit?' - ore '+s.oraRit:'')],['Auto in servizio',s.cars&&s.cars.length?s.cars.join(' - '):'-']];
 R.forEach(r=>{T(r[0]+':',50,11.5,B,bl);for(const l of W(r[1],F,11.5,340)){T(l,205,11.5,F);y-=16}y-=6});
 y-=8;T('SONO AUTORIZZATI AL SERVIZIO I SEGUENTI OPERATORI:',50,11.5,B,bl);y-=22;
