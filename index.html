@@ -36,7 +36,7 @@ nav{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}nav button.on{backgro
 .tag{display:inline-block;background:var(--p);color:var(--pt);border-radius:99px;padding:1px 9px;font-size:12px;margin:2px 3px 2px 0}
 .tag.r{background:var(--a);color:#14213d;font-weight:700}
 ol{padding-left:20px;margin:6px 0}li.r{font-weight:700;color:var(--a)}
-.f{display:grid;grid-template-columns:1fr 1fr;gap:8px}.f label{display:flex;flex-direction:column;font-size:13px;color:var(--m);gap:3px}.f .w{grid-column:1/-1}
+.f{display:grid;grid-template-columns:1fr 1fr;gap:8px}.f label{display:flex;flex-direction:column;font-size:13px;color:var(--m);gap:3px}.f .w{grid-column:1/-1}.rt{display:flex;gap:8px;flex-wrap:wrap}.rt .rr{flex:1 1 170px}.rt .rh{flex:0 0 130px}.rt .rn{flex:0 0 150px}.rt .rb{flex:0 0 150px}.rt .rb .m{white-space:nowrap;font-size:12px}.rt input:disabled{opacity:.55}.f label{min-width:0}.f input,.f select{width:100%;min-width:0}#fv,#fc{width:auto;max-width:100%}.rt{min-width:0}
 .tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--b);white-space:nowrap}
 .bar{height:10px;background:var(--p);border-radius:5px}
 .fl{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.login{text-align:center;max-width:420px;margin:40px auto}.login button{margin:4px}
@@ -99,12 +99,12 @@ function form(){const d=draft,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}
 <label>Alle ore<input type="time" id="fto" value="${d.to||'13:00'}"></label>
 <label>In località<input id="fp" value="${esc(d.p||'')}" placeholder="es. Parco Sempione"></label>
 <label>Manifestazione<input id="fe" value="${esc(d.e||'')}" placeholder="es. Festa della Polizia"></label>
-<label class="w">Rimborso del servizio (€) – lo stesso importo per ogni volontario partecipante<input type="number" min="0" step="0.01" id="frb" value="${d.rb||''}" placeholder="es. 10,00" oninput="rbT()"><span class="m" id="rbt">${rbTxt(d.rb,d.vols.length)}</span></label>
-<label>Ora del ritrovo<input type="time" id="fh" value="${d.h||''}"></label>
-<label class="w">Su richiesta di<input id="fq" value="${esc(d.q||'')}" placeholder="es. Comune di Milano"></label>
-<label>Numero ordinanza<input disabled value="Ord. N. ${dn(d)}/${(d.d||today).slice(0,4)}"><span class="m">Automatico: segue la data del servizio. I servizi già svolti restano bloccati.</span></label>
-<label>Ritrovo<select id="fr" onchange="keep()">${sl(RIT,d.r)}</select></label>
-<label style="display:${d.r===RIT[2]?'flex':'none'}">Altro ritrovo<input id="fo" value="${esc(d.o||'')}"></label>
+<div class="w rt"><label class="rn" title="Automatico: segue la data e l'ora di inizio. I servizi già svolti restano bloccati.">Numero ordinanza<input disabled value="Ord. N. ${dn(d)}/${(d.d||today).slice(0,4)}"></label>
+<label class="rr">Su richiesta di<input id="fq" value="${esc(d.q||'')}" placeholder="es. Comune di Milano"></label>
+<label class="rb" title="Importo in euro uguale per ogni volontario che partecipa al servizio">Rimborso (€)<input type="number" min="0" step="0.01" id="frb" value="${d.rb||''}" placeholder="0,00" oninput="rbT()"><span class="m" id="rbt">${rbTxt(d.rb,d.vols.length)}</span></label></div>
+<div class="w rt"><label class="rr">Ritrovo<select id="fr" onchange="keep()">${sl(RIT,d.r)}</select></label>
+<label class="rr">Altro ritrovo<input id="fo" value="${esc(d.o||'')}" ${d.r===RIT[2]?'':'disabled placeholder="solo con «Altro…»"'}></label>
+<label class="rh">Ora ritrovo<input type="time" id="fh" value="${d.h||''}"></label></div>
 <div class="w"><span class="m">Volontari (il primo è il Responsabile)</span><br>
 ${d.vols.map((v,i)=>`<span class="tag ${i?'':'r'}">${i?'':'★ '}${esc(v)} <a href="#" onclick="keep();draft.vols.splice(${i},1);draw();return false">✕</a></span>`).join('')}
 <br><select id="fv"><option value="">+ Aggiungi volontario</option>${S.vol.filter(v=>!d.vols.includes(v)).map(v=>`<option>${esc(v)}</option>`).join('')}</select>
@@ -183,7 +183,7 @@ firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();S={vol:
 auth.onAuthStateChanged(async u=>{if(!u){un.forEach(f=>f());un=[];user=null;return draw()}
 if(ADMINS.includes(u.email.toLowerCase()))user='__admin';else{const d=await db.collection('users').doc(u.uid).get();user=d.exists?d.data().name:'__pick'}
 listen();draw()})}
-const rbTxt=(r,n)=>(+r>0&&n)?`${n} volontari × ${eur(+r)} = totale servizio ${eur(+r*n)}`:'Lascia vuoto se non c\'è rimborso.';
+const rbTxt=(r,n)=>(+r>0&&n)?`${n} × ${eur(+r)} = ${eur(+r*n)}`:'Uguale per ogni volontario';
 function rbT(){$('#rbt').textContent=rbTxt($('#frb').value,draft.vols.length)}
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 /* ===== Ordinanza ===== */
