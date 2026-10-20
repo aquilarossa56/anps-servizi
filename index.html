@@ -27,6 +27,7 @@ nav{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}nav button.on{backgro
 .dow{text-align:center;font-size:12px;color:var(--m)}
 .day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid transparent;cursor:default;position:relative}
 .day.has{background:var(--p);color:var(--pt);font-weight:700;cursor:pointer}
+.day.prog{background:#e67e22;color:#fff;font-weight:700;cursor:pointer}.day.both::after{content:'';position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:#e67e22;border:1px solid #fff}.day u{position:absolute;bottom:3px;display:flex;gap:2px;text-decoration:none}.day u b{width:7px;height:7px;border-radius:50%;border:1px solid #fff}.srv+.oh{margin-top:14px}.oh{background:#e67e22;color:#fff;font-weight:700;font-size:16px;padding:9px 14px;border-radius:8px;margin:0 0 10px}.card>.oh:first-child{margin:-14px -14px 12px;border-radius:12px 12px 0 0}.rt .rv{flex:0 0 112px}.lg{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--m)}.lg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .day.today{border-color:var(--a)}.day.sel{outline:3px solid var(--a)}
 .day.has i{position:absolute;bottom:3px;font-size:9px;font-style:normal}
 .cal{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -64,7 +65,7 @@ const today=iso(new Date()),Y=new Date().getFullYear();
 const fmt=d=>d.split('-').reverse().join('/');
 const hrs=s=>{let[a,b]=s.from.split(':').map(Number),[c,d]=s.to.split(':').map(Number);let h=(c*60+d-a*60-b)/60;if(h<0)h+=24;return Math.round(h*100)/100};
 let S;try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
-if(!S)S={vol:[],srv:[],mail:{}};S.mail=S.mail||{};
+if(!S)S={vol:[],srv:[],mail:{},prog:[],ev:[]};S.mail=S.mail||{};S.prog=S.prog||[];S.ev=S.ev||[];
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
 let user=null,tab='cal',month=new Date(new Date().getFullYear(),new Date().getMonth(),1),sel=null,draft={vols:[]};
 const isAdm=()=>user==='__admin';
@@ -82,19 +83,20 @@ if(!isAdm())tab='cal';$('#v').innerHTML=tab==='cal'?cal():tab==='stat'?stat():vo
 function cal(){const y=month.getFullYear(),m=month.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 const fut=S.srv.filter(s=>s.d>=today);let cells='';
 for(let i=0;i<first;i++)cells+='<div></div>';
-for(let d=1;d<=n;d++){const k=iso(new Date(y,m,d)),c=fut.filter(s=>s.d===k).length;
-cells+=`<div class="day ${c?'has':''} ${k===today?'today':''} ${k===sel?'sel':''}" ${c?`onclick="sel='${k}';draw()"`:''}>${d}${c>1?`<i>${c}</i>`:''}</div>`}
+for(let d=1;d<=n;d++){const k=iso(new Date(y,m,d)),c=fut.filter(s=>s.d===k).length,pc=S.prog.filter(p=>p.d===k&&p.d>=today).length;
+const ks=[];if(c)ks.push('var(--p)');if(pc)ks.push('#e67e22');S.ev.filter(e=>e.d===k&&e.d>=today).forEach(e=>{if(!ks.includes(EVCOL))ks.push(EVCOL)});
+cells+=`<div class="day ${ks.length?'has':''} ${k===today?'today':''} ${k===sel?'sel':''}" ${ks.length?`style="background:${ks[0]}" onclick="sel='${k}';draw()"`:''}>${d}${c>1?`<i>${c}</i>`:''}${ks.length>1?`<u>${ks.slice(1).map(x=>`<b style="background:${x}"></b>`).join('')}</u>`:''}</div>`}
 const list=sel?fut.filter(s=>s.d===sel):[];
 const mine=!isAdm()?fut.filter(s=>s.vols.includes(user)).sort((a,b)=>a.d.localeCompare(b.d)):[];
 return `${remind()}<div class="two"><div class="card"><div class="cal"><button onclick="month=new Date(${y},${m-1},1);draw()">‹</button><b>${MESI[m]} ${y}</b><button onclick="month=new Date(${y},${m+1},1);draw()">›</button></div>
 <div class="grid">${['L','M','M','G','V','S','D'].map(x=>`<div class="dow">${x}</div>`).join('')}${cells}</div>
-<p class="m">I giorni evidenziati hanno un servizio. Clicca per i dettagli.</p></div>
-<div><div class="card"><h2>${sel?'Servizi del '+fmt(sel):'Seleziona un giorno'}</h2>${list.map(card).join('')||'<span class="m">Nessun servizio selezionato.</span>'}</div>
-${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} · N. ${numOf(s)}/${s.d.slice(0,4)} · ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${isAdm()?reg()+form():''}`}
+<div class="lg"><span><i style="background:var(--p)"></i>Servizio confermato</span><span><i style="background:#e67e22"></i>Servizio da definire</span><span><i style="background:#58a617"></i>Riunioni e corsi</span></div><p class="m">Clicca su un giorno evidenziato per i dettagli.</p></div>
+<div><div class="card">${sel&&!list.length&&(progOn(sel)||evOn(sel))?'':`<h2>${sel?'Servizi del '+fmt(sel):'Seleziona un giorno'}</h2>`}${list.map(card).join('')}${progDay()}${evDay()}${(list.length||progOn(sel)||evOn(sel))?'':'<span class="m">Nessun servizio selezionato.</span>'}</div>
+${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} · N. ${numOf(s)}/${s.d.slice(0,4)} · ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${progBox()}${isAdm()?formP()+formE()+reg()+form():''}`}
 function card(s){return `<div class="srv"><b style="font-size:17px">📅 ${fmt(s.d)} · Ord. N. ${numOf(s)}/${s.d.slice(0,4)}</b><b>${s.from}–${s.to} · ${esc(s.type)}</b>${esc(s.ev)}<div class="m">📍 ${esc(s.place)} · Ritrovo: ${esc(s.rit)}${s.oraRit?' · <strong>ore '+esc(s.oraRit)+'</strong>':''}${s.cars&&s.cars.length?' · 🚗 '+esc(s.cars.join(', ')):''}${isAdm()&&s.rimb?' · 💶 '+eur(s.rimb)+' per ogni volontario':''}</div>
 <ol>${s.vols.map((v,i)=>`<li class="${i?'':'r'}">${esc(v)}${i?'':' — <span class="tag r">Responsabile</span>'}</li>`).join('')}</ol>
 ${isAdm()||(s.vols.includes(user)&&s.d===today)?`<button class="pri" onclick="ord(${s.id})">📄 Scarica ordinanza PDF</button>`:''} ${isAdm()?`<button onclick="mail(${s.id})">✉️ Email</button> <button onclick="editSrv(${s.id})">✏️ Modifica</button> <button onclick="wa(${s.id})">💬 WhatsApp</button> <button class="del" onclick="delSrv(${s.id})">Elimina</button>`:''}</div>`}
-function form(){const d=draft;if(d.t===undefined){d.t=TIPI[0];const n=DEFS[d.t]||{};for(const k of ['p','q','rb','e'])if(d[k]===undefined)d[k]=n[k]||''}const sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frm"><h2>${d.id?'Modifica servizio':'Nuovo servizio'}</h2><div class="f">
+function form(){const d=draft;if(d.t===undefined){d.t=TIPI[0];const n=DEFS[d.t]||{};for(const k of ['p','q','rb','e'])if(d[k]===undefined)d[k]=n[k]||''}const sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frm"><h2>${d.id?'Modifica servizio':'Nuovo servizio'}</h2>${d.fromProg?'<div class="m" style="margin-bottom:8px">➡️ Dati presi dal servizio da definire: completa e salva. Il servizio da definire verrà tolto dall\'elenco.</div>':''}<div class="f">
 <label>Data<input type="date" id="fd" onchange="keep()" value="${d.d||today}" min="${d.id?'':today}"></label>
 <label>Incarico di Servizio<select id="ft" onchange="typeChg()">${sl(TIPI,d.t)}</select></label>
 <label>Dalle ore<input type="time" id="ff" value="${d.from||'08:00'}"></label>
@@ -115,12 +117,12 @@ ${d.vols.map((v,i)=>`<span class="tag ${i?'':'r'}">${i?'':'★ '}${esc(v)} <a hr
 ${(d.cars||[]).map((v,i)=>`<span class="tag">🚗 ${esc(v)} <a href="#" onclick="keep();draft.cars.splice(${i},1);draw();return false">✕</a></span>`).join('')}
 <br><select id="fc"><option value="">+ Scegli auto</option>${CARS.filter(v=>!(d.cars||[]).includes(v)).map(v=>`<option>${v}</option>`).join('')}</select>
 <button onclick="const x=$('#fc').value;keep(true);if(x){(draft.cars=draft.cars||[]).push(x);draw()}">Aggiungi auto</button></div>
-<div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id?'<button onclick="draft={vols:[]};draw()">Annulla</button>':''}</div></div></div>`}
+<div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id||d.fromProg?'<button onclick="draft={vols:[]};draw()">Annulla</button>':''}</div></div></div>`}
 function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb'),h:g('fh'),q:g('fq')});if(!q)draw()}
 function addSrv(){keep(true);const d=draft,rit=d.r===RIT[2]?(d.o||'Altro'):d.r;
 if(!d.d||!d.vols.length)return alert('Inserisci data e almeno un volontario');
 const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:+d.rb||0,oraRit:d.h||'',req:d.q||'',cars:[...(d.cars||[])]};const old=S.srv.find(x=>x.id===d.id);if(old&&old.n&&o.d<=today)o.n=old.n;
-put(o);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};draw()}
+put(o);if(d.fromProg)delP(d.fromProg);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};draw()}
 function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',cars:[...(s.cars||[])],vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
 function wa(id){const s=S.srv.find(x=>x.id===id);open('https://wa.me/?text='+encodeURIComponent(`ANPS Milano – Servizio ${fmt(s.d)} ${s.from}-${s.to}\n${s.type}: ${s.ev||s.place}\nLuogo: ${s.place}\nRitrovo: ${s.rit}\nResponsabile: ${s.vols[0]}\nVolontari: ${s.vols.join(', ')}`))}
 function delSrv(id){if(confirm('Eliminare il servizio?'))rm(id)}
@@ -180,10 +182,10 @@ const ERR_IT={'auth/email-already-in-use':"Questa email è già registrata.\n\nN
 const errIt=x=>ERR_IT[x.code]||'Si è verificato un errore ('+(x.code||x.message)+'). Riprova o contatta l\'amministratore.';
 function pick(){$('#who').innerHTML='<button onclick="out()">Esci</button>';$('#app').innerHTML=`<div class="card login"><h2>Chi sei?</h2><p class="m">Scegli il tuo nominativo. Se non compare, chiedi all'amministratore di inserirti.</p><select id="pk"><option value="">—</option>${S.vol.map(v=>`<option>${esc(v)}</option>`).join('')}</select><button class="pri" onclick="pk()">Conferma</button></div>`}
 async function pk(){const n=$('#pk').value;if(!n)return;await db.collection('users').doc(auth.currentUser.uid).set({name:n,email:auth.currentUser.email});user=n;draw()}
-function listen(){un.forEach(f=>f());un=[db.collection('servizi').onSnapshot(q=>{if($('#frm'))keep(true);S.srv=q.docs.map(x=>x.data());draw()}),db.collection('volontari').onSnapshot(q=>{if($('#frm'))keep(true);S.mail={};q.docs.forEach(x=>S.mail[x.data().name]=x.data().email||'');S.vol=q.docs.map(x=>x.data().name).sort();draw()})];if(isAdm())un.push(db.collection('users').onSnapshot(q=>{S.mail={};q.docs.forEach(x=>{const u=x.data();S.mail[u.name]=u.email})}))}
+function listen(){un.forEach(f=>f());un=[db.collection('servizi').onSnapshot(q=>{if($('#frm'))keep(true);S.srv=q.docs.map(x=>x.data());draw()}),db.collection('eventi').onSnapshot(q=>{if($('#frmE'))keepE(true);S.ev=q.docs.map(x=>x.data());draw()}),db.collection('programmazione').onSnapshot(q=>{if($('#frmP'))keepP(true);S.prog=q.docs.map(x=>x.data());draw()}),db.collection('volontari').onSnapshot(q=>{if($('#frm'))keep(true);S.mail={};q.docs.forEach(x=>S.mail[x.data().name]=x.data().email||'');S.vol=q.docs.map(x=>x.data().name).sort();draw()})];if(isAdm())un.push(db.collection('users').onSnapshot(q=>{S.mail={};q.docs.forEach(x=>{const u=x.data();S.mail[u.name]=u.email})}))}
 async function boot(){if(!CFG)return draw();
 try{for(const u of ['app','auth','firestore'])await lib('https://www.gstatic.com/firebasejs/10.12.2/firebase-'+u+'-compat.js')}catch(e){return alert('Impossibile caricare Firebase')}
-firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();S={vol:[],srv:[],mail:{}};
+firebase.initializeApp(CFG);auth=firebase.auth();db=firebase.firestore();S={vol:[],srv:[],mail:{},prog:[],ev:[]};
 auth.onAuthStateChanged(async u=>{if(!u){un.forEach(f=>f());un=[];user=null;return draw()}
 if(ADMINS.includes(u.email.toLowerCase()))user='__admin';else{const d=await db.collection('users').doc(u.uid).get();user=d.exists?d.data().name:'__pick'}
 listen();draw()})}
@@ -221,5 +223,41 @@ function mail(id){const s=S.srv.find(x=>x.id===id),em=s.vols.map(v=>(S.mail||{})
 if(!em.length&&!confirm('Non trovo le email dei volontari (si vedono solo dopo la loro registrazione). Aprire comunque la mail?'))return;
 const txt='ORDINANZA DI SERVIZIO\n\n'+ordRows(s).map(r=>r[0]+': '+r[1]).join('\n')+'\n\nSono autorizzati al servizio i seguenti operatori:\n'+s.vols.map((v,i)=>(i+1)+'. '+v+(i?'':' (Responsabile)')).join('\n')+'\n\n'+ORD_TXT+'\n\nANPS Milano';
 location.href='mailto:?bcc='+encodeURIComponent(em.join(','))+'&subject='+encodeURIComponent('Ordinanza di servizio '+fmt(s.d)+' - '+s.type)+'&body='+encodeURIComponent(txt)}
+/* ===== Servizi in programmazione da definire ===== */
+const SVOLG=['Mattina','Pomeriggio','Intera giornata'];let dp={};
+function putP(p){if(db)db.collection('programmazione').doc(String(p.id)).set(p).catch(e=>alert(e.message));else{const i=S.prog.findIndex(x=>x.id===p.id);i<0?S.prog.push(p):S.prog[i]=p;save();draw()}}
+function rmP(id){if(!confirm('Eliminare il servizio da definire?'))return;if(db)db.collection('programmazione').doc(String(id)).delete();else{S.prog=S.prog.filter(p=>p.id!==id);save();draw()}}
+function keepP(q){if(!$('#frmP'))return;const g=i=>$('#'+i)?.value;Object.assign(dp,{d:g('pd'),t:g('pt'),s:g('ps'),p:g('pp'),e:g('pe'),n:g('pn')});if(!q)draw()}
+function addP(){keepP(true);if(!dp.d)return alert('Inserisci la data');putP({id:dp.id||Date.now(),d:dp.d,t:dp.t||TIPI[0],s:dp.s||SVOLG[0],p:dp.p||'',e:dp.e||'',n:Math.min(999,+dp.n||0)});sel=dp.d;month=new Date(+dp.d.slice(0,4),+dp.d.slice(5,7)-1,1);dp={};draw()}
+function editP(id){const p=S.prog.find(x=>x.id===id);dp={id,d:p.d,t:p.t,s:p.s,p:p.p,e:p.e,n:p.n||''};draw();$('#frmP').scrollIntoView()}
+const progOn=k=>S.prog.some(p=>p.d===k&&p.d>=today);
+const progNote=()=>`<p style="margin:10px 0 0"><b>Servizio richiesto in attesa dei dati definitivi che verranno resi noti appena possibile.</b><br><span class="m">Il seguente messaggio non sostituisce l'ordine di servizio effettivo.</span></p>`;
+function progItem(p){return `<div class="srv"><b style="font-size:17px">📅 ${fmt(p.d)} · ${esc(p.s)}</b><b>${esc(p.t)}</b>${p.e?esc(p.e):''}<div class="m">📍 ${esc(p.p||'località da definire')}</div><div>Volontari richiesti: <b style="display:inline;font-size:16px">${p.n||'da definire'}</b></div>${isAdm()?`<button class="pri" onclick="toSrv(${p.id})">➡️ Trasforma in servizio</button> <button onclick="editP(${p.id})">✏️ Modifica</button> <button class="del" onclick="rmP(${p.id})">Elimina</button>`:''}</div>`}
+function progDay(){const L=S.prog.filter(p=>p.d===sel&&p.d>=today);return L.length?`<div class="oh">Servizio in Programmazione da definire</div>${L.map(progItem).join('')}${progNote()}`:''}
+function progBox(){const L=S.prog.filter(p=>p.d>=today).sort((a,b)=>a.d.localeCompare(b.d));return `<div class="card progbox"><div class="oh">Servizio in Programmazione da definire</div>${L.map(progItem).join('')||'<span class="m">Nessun servizio in programmazione.</span>'}${progNote()}</div>`}
+function formP(){const d=dp,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frmP"><h2>${d.id?'Modifica servizio da definire':'Nuovo servizio da definire'}</h2><div class="f">
+<div class="w rt"><label class="rr">Data<input type="date" id="pd" value="${d.d||today}" min="${d.id?'':today}"></label>
+<label class="rr">Incarico di Servizio<select id="pt">${sl(TIPI,d.t)}</select></label>
+<label class="rr">Svolgimento presunto<select id="ps">${sl(SVOLG,d.s)}</select></label>
+<label class="rv">Volontari richiesti<input type="number" min="1" max="999" id="pn" value="${d.n||''}" placeholder="es. 50"></label></div>
+<div class="w rt"><label class="rr">In località<input id="pp" value="${esc(d.p||'')}" placeholder="es. Parco Sempione"></label>
+<label class="rr">Funzioni di Servizio<input id="pe" value="${esc(d.e||'')}" placeholder="es. Servizio Antidegrado"></label></div>
+<div class="w"><button class="pri" onclick="addP()">Salva servizio da definire</button> ${d.id?'<button onclick="dp={};draw()">Annulla</button>':''}</div></div></div>`}
+function delP(id){if(db)db.collection('programmazione').doc(String(id)).delete();else{S.prog=S.prog.filter(p=>p.id!==id);save()}}
+function toSrv(id){const p=S.prog.find(x=>x.id===id),n=DEFS[p.t]||{},H={'Mattina':['08:00','13:00'],'Pomeriggio':['14:00','18:00'],'Intera giornata':['08:00','17:00']}[p.s]||['08:00','13:00'];draft={vols:[],d:p.d,t:p.t,p:p.p,e:p.e,q:n.q||'',rb:n.rb||'',from:H[0],to:H[1],fromProg:id};draw();$('#frm').scrollIntoView()}
+/* ===== Riunioni, corsi, pranzi e cene ===== */
+const EVT=['Riunione','Corso'],EVCOL='#58a617';let de={};
+function putE(x){if(db)db.collection('eventi').doc(String(x.id)).set(x).catch(e=>alert(e.message));else{const i=S.ev.findIndex(y=>y.id===x.id);i<0?S.ev.push(x):S.ev[i]=x;save();draw()}}
+function rmE(id){if(!confirm('Eliminare questo incontro?'))return;if(db)db.collection('eventi').doc(String(id)).delete();else{S.ev=S.ev.filter(x=>x.id!==id);save();draw()}}
+function keepE(q){if(!$('#frmE'))return;const g=i=>$('#'+i)?.value;Object.assign(de,{d:g('ed'),t:g('et'),m:g('em'),p:g('ep'),h:g('eh'),h2:g('eh2')});if(!q)draw()}
+function addE(){keepE(true);if(!de.d)return alert('Inserisci la data');if(!de.p)return alert('Inserisci il luogo');putE({id:de.id||Date.now(),d:de.d,t:de.t||EVT[0],m:de.m||'',p:de.p,h:de.h||'',h2:de.h2||''});sel=de.d;month=new Date(+de.d.slice(0,4),+de.d.slice(5,7)-1,1);de={};draw()}
+function editE(id){const x=S.ev.find(y=>y.id===id);de={...x};draw();$('#frmE').scrollIntoView()}
+const evOn=k=>S.ev.some(e=>e.d===k&&e.d>=today);
+function evDay(){return S.ev.filter(e=>e.d===sel&&e.d>=today).sort((a,b)=>(a.h||'').localeCompare(b.h||'')).map(e=>`<div class="oh" style="background:${EVCOL}">${esc(e.t)}</div><div class="srv"><b style="font-size:17px">📅 ${fmt(e.d)}${e.h?' · 🕒 ore '+e.h+(e.h2?' – '+e.h2:''):''}</b>${e.m?`<b>${esc(e.m)}</b>`:''}<div class="m">📍 ${esc(e.p)}</div>${isAdm()?`<button onclick="editE(${e.id})">✏️ Modifica</button> <button class="del" onclick="rmE(${e.id})">Elimina</button>`:''}</div>`).join('')}
+function formE(){const d=de,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frmE"><h2>${d.id?'Modifica incontro':'Nuovo incontro (riunione o corso)'}</h2><div class="f">
+<div class="w rt"><label class="rr">Data<input type="date" id="ed" value="${d.d||today}" min="${d.id?'':today}"></label><label class="rh">Dalle ore<input type="time" id="eh" value="${d.h||''}"></label><label class="rh">Alle ore<input type="time" id="eh2" value="${d.h2||''}"></label></div>
+<div class="w rt"><label class="rr">Luogo<input id="ep" value="${esc(d.p||'')}" placeholder="es. Caserma via Cagni"></label></div>
+<div class="w rt"><label class="rr" style="flex:0 0 180px">Motivo incontro<select id="et">${sl(EVT,d.t)}</select></label><label class="rr">Dettaglio del motivo<input id="em" value="${esc(d.m||'')}" placeholder="es. Corso di primo soccorso"></label></div>
+<div class="w"><button class="pri" onclick="addE()">Salva incontro</button> ${d.id?'<button onclick="de={};draw()">Annulla</button>':''}</div></div></div>`}
 boot();
 </script></body></html>
