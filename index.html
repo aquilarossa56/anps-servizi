@@ -232,7 +232,18 @@ return `<div class="card fl"><select onchange="flt.v=this.value;draw()"><option 
 ${regRows(rows,cvV)}</table></div></div>`}
 function setT(id,t){put({...S.srv.find(s=>s.id===id),type:t})}
 function volp(){return `<div class="card"><h2>Volontari</h2><input id="nv" placeholder="Cognome Nome"> <input id="ne" type="email" placeholder="Email (per ordinanza)"><button class="pri" onclick="addV()">Aggiungi</button>
-<ul>${S.vol.map((v,i)=>`<li>${esc(v)} <span class="m">${esc((S.mail||{})[v]||"senza email")}</span> <button class="del" onclick="delV(${i})">✕</button></li>`).join('')}</ul></div>`}
+<ul>${S.vol.map((v,i)=>`<li style="margin:4px 0">${renV===v?`<input id="rn" value="${esc(v)}" style="min-width:220px"> <button class="pri" onclick="renameVol(S.vol[${i}],$('#rn').value)">Salva nome</button> <button onclick="renV=null;draw()">Annulla</button>`:`${esc(v)} <span class="m">${esc((S.mail||{})[v]||"senza email")}</span> <button onclick="renV=S.vol[${i}];draw()">✏️ Modifica nome</button> <button class="del" onclick="delV(${i})">✕</button>`}</li>`).join('')}</ul></div>`}
+let renV=null;
+async function renameVol(old,nw){nw=(nw||'').trim().replace(/\s+/g,' ');if(!nw||nw===old){renV=null;return draw()}
+if(S.vol.some(v=>v!==old&&v.toLowerCase()===nw.toLowerCase()))return alert('Esiste già un volontario con questo nome.');
+const rp=a=>a.map(x=>x===old?nw:x),rk=o=>{if(!o||!(old in o))return o;const r={...o};r[nw]=r[old];delete r[old];return r};
+const srv=S.srv.filter(s=>s.vols.includes(old)||(s.ov&&old in s.ov)).map(s=>{const o={...s,vols:rp(s.vols)};if(s.ov)o.ov=rk(s.ov);return o}),ev=S.ev.filter(e=>(e.vols||[]).includes(old)).map(e=>({...e,vols:rp(e.vols)}));
+if(db){try{const ops=[],vd=db.collection('volontari');ops.push(b=>b.delete(vd.doc(vid(old))));ops.push(b=>b.set(vd.doc(vid(nw)),{name:nw,email:(S.mail||{})[old]||'',since:(S.since||{})[old]||null}));
+srv.forEach(s=>ops.push(b=>b.set(db.collection('servizi').doc(String(s.id)),s)));ev.forEach(e=>ops.push(b=>b.set(db.collection('eventi').doc(String(e.id)),e)));
+const us=await db.collection('users').where('name','==',old).get();us.forEach(d=>ops.push(b=>b.update(d.ref,{name:nw})));
+for(let i=0;i<ops.length;i+=400){const b=db.batch();ops.slice(i,i+400).forEach(f=>f(b));await b.commit()}}catch(x){return alert('Errore: '+x.message)}}
+else{S.vol=S.vol.map(v=>v===old?nw:v).sort();S.mail=rk(S.mail)||{};S.since=rk(S.since)||{};srv.forEach(s=>{S.srv[S.srv.findIndex(y=>y.id===s.id)]=s});ev.forEach(e=>{S.ev[S.ev.findIndex(y=>y.id===e.id)]=e});save()}
+renV=null;draw()}
 function addV(){const v=$('#nv').value.trim(),e=$('#ne').value.trim();if(v&&(!S.vol.includes(v)||e))putV(v,e)}
 function delV(i){if(confirm('Rimuovere il volontario?'))rmV(S.vol[i])}
 const lib=u=>new Promise((r,j)=>{const s=document.createElement('script');s.src=u;s.onload=r;s.onerror=j;document.head.appendChild(s)});
