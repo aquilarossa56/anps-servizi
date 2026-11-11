@@ -87,9 +87,9 @@ function demoLogin(){$('#who').innerHTML='';$('#app').innerHTML=`<div class="car
 <p class="m">Demo: PIN admin 1234</p></div>`}
 function draw(){if(!user)return login();if(isAdm()){freezePast();yrAutoRun()}if(user==='__pick')return pick();
 $('#who').innerHTML=`<small>${isAdm()?'Amministratore':esc(user)}</small> <button onclick="out()">Esci</button>`;
-const tabs=[['cal','Calendario']].concat(isAdm()?[['stat','Statistiche'],['conf','Confronto anno'],['conv','Convenzioni'],['parchi','Servizi Parchi'],['vol','Volontari']]:[]);
+const tabs=[['cal','Calendario']].concat(isAdm()?[['nsrv','Nuovo servizio'],['ndef','Da definire'],['ninc','Nuovo incontro'],['stat','Statistiche'],['conf','Confronto anno'],['conv','Convenzioni'],['parchi','Servizi Parchi'],['vol','Volontari']]:[]);
 $('#app').innerHTML=`<nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';draw()">${t[1]}</button>`).join('')}</nav><div id="v"></div>`;
-if(!isAdm())tab='cal';$('#v').innerHTML=tab==='cal'?cal():tab==='stat'?stat():tab==='conf'?confr():tab==='conv'?convP():tab==='parchi'?parchiP():volp()}
+if(!isAdm())tab='cal';$('#v').innerHTML=tab==='cal'?cal():tab==='nsrv'?form():tab==='ndef'?formP():tab==='ninc'?formE():tab==='stat'?stat():tab==='conf'?confr():tab==='conv'?convP():tab==='parchi'?parchiP():volp()}
 function cal(){const y=month.getFullYear(),m=month.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
 const fut=S.srv.filter(s=>s.d>=today);let cells='';
 for(let i=0;i<first;i++)cells+='<div></div>';
@@ -102,7 +102,7 @@ return `${remind()}<div class="two"><div class="card"><div class="cal"><button o
 <div class="grid">${['L','M','M','G','V','S','D'].map(x=>`<div class="dow">${x}</div>`).join('')}${cells}</div>
 <div class="lg"><span><i style="background:var(--p)"></i>Servizio confermato</span><span><img src="${PCL}" style="width:14px;height:14px;vertical-align:-2px;margin-right:5px">Protezione Civile</span><span><i style="background:#e67e22"></i>Servizio da definire</span><span><i style="background:#58a617"></i>Riunioni e corsi</span></div><p class="m">Clicca su un giorno evidenziato per i dettagli.</p></div>
 <div><div class="card">${sel&&!list.length&&(progOn(sel)||evOn(sel))?'':`<h2>${sel?'Servizi del '+fmt(sel):'Seleziona un giorno'}</h2>`}${list.map(card).join('')}${progDay()}${evDay()}${(list.length||progOn(sel)||evOn(sel))?'':'<span class="m">Nessun servizio selezionato.</span>'}</div>
-${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} · N. ${numOf(s)}/${s.d.slice(0,4)} · ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${progBox()}${isAdm()?formP()+formE()+reg()+form():''}`}
+${!isAdm()?`<div class="card"><h2>I miei prossimi servizi</h2>${mine.map(s=>`<div class="srv"><b>${fmt(s.d)} · N. ${numOf(s)}/${s.d.slice(0,4)} · ${s.from}–${s.to}</b>${esc(s.ev||s.place)} · ${esc(s.type)}</div>`).join('')||'<span class="m">Nessun servizio assegnato.</span>'}</div>`:''}</div></div>${progBox()}${isAdm()?reg():''}`}
 function card(s){return `<div class="srv"><b style="font-size:17px">📅 ${fmt(s.d)} · Ord. N. ${numOf(s)}/${s.d.slice(0,4)}</b><b>${s.from}–${s.to} · ${esc(s.type)}</b>${esc(s.ev)}<div class="m">📍 ${esc(s.place)} · Ritrovo: ${esc(s.rit)}${s.oraRit?' · <strong>ore '+esc(s.oraRit)+'</strong>':''}${s.cars&&s.cars.length?' · 🚗 '+esc(s.cars.join(', ')):''}${isAdm()&&s.rimb&&s.type!=='Protezione Civile'?' · 💶 '+eur(s.rimb)+' per ogni volontario':''}${isAdm()&&ctOf(s)&&s.type!=='Protezione Civile'?' · 💰 contributo '+eur(ctOf(s))+' per volontario'+(lkS(s)?' (da convenzione)':''):''}</div>
 <ol>${s.vols.map((v,i)=>`<li class="${i?'':'r'}">${esc(v)}${i?'':' — <span class="tag r">Responsabile</span>'}</li>`).join('')}</ol>${noteBox(s.note)}
 ${isAdm()||(s.vols.includes(user)&&s.d===today)?`<button class="pri" onclick="ord(${s.id})">📄 Scarica ordinanza PDF</button>`:''} ${isAdm()?`<button onclick="mail(${s.id})">✉️ Email</button> <button onclick="editSrv(${s.id})">✏️ Modifica</button> <button onclick="wa(${s.id})">💬 WhatsApp</button> <button class="del" onclick="delSrv(${s.id})">Elimina</button>`:''}</div>`}
@@ -129,13 +129,13 @@ ${d.vols.map((v,i)=>`<span class="tag ${i?'':'r'}">${i?'':'★ '}${esc(v)} <a hr
 ${(d.cars||[]).map((v,i)=>`<span class="tag">🚗 ${esc(v)} <a href="#" onclick="keep();draft.cars.splice(${i},1);draw();return false">✕</a></span>`).join('')}
 <br><select id="fc"><option value="">+ Scegli auto</option>${CARS.filter(v=>!(d.cars||[]).includes(v)).map(v=>`<option>${v}</option>`).join('')}</select>
 <button onclick="const x=$('#fc').value;keep(true);if(x){(draft.cars=draft.cars||[]).push(x);draw()}">Aggiungi auto</button></div>
-<div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id||d.fromProg?'<button onclick="draft={vols:[]};draw()">Annulla</button>':''}</div></div></div>`}
+<div class="w"><button class="pri" onclick="addSrv()">Salva servizio</button> ${d.id||d.fromProg?'<button onclick="draft={vols:[]};tab=\'cal\';draw()">Annulla</button>':''}</div></div></div>`}
 function keep(q){const g=i=>$('#'+i)?.value;Object.assign(draft,{d:g('fd'),from:g('ff'),to:g('fto'),p:g('fp'),e:g('fe'),t:g('ft'),r:g('fr'),o:g('fo'),rb:g('frb'),h:g('fh'),q:g('fq'),nt:g('fnt'),ct:g('fct')});if(!q)draw()}
 function addSrv(){keep(true);const d=draft,rit=d.r===RIT[2]?(d.o||'Altro'):d.r;
 if(!d.d||!d.vols.length)return alert('Inserisci data e almeno un volontario');
 const o={id:d.id||Date.now(),d:d.d,from:d.from,to:d.to,place:d.p,ev:d.e,type:d.t,rit,vols:[...d.vols],rimb:d.t==='Protezione Civile'?0:+d.rb||0,oraRit:d.h||'',req:d.q||'',cars:[...(d.cars||[])],note:d.nt||'',contr:d.t==='Protezione Civile'?0:lkC(d)?((S.srv.find(x=>x.id===d.id)||{}).contr||0):+d.ct||0};const old=S.srv.find(x=>x.id===d.id);if(old&&old.n&&o.d<=today)o.n=old.n;
-put(o);if(d.fromProg)delP(d.fromProg);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};draw()}
-function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',cars:[...(s.cars||[])],nt:s.note||'',ct:ctOf(s)||'',vols:[...s.vols]};draw();$('#frm').scrollIntoView()}
+put(o);if(d.fromProg)delP(d.fromProg);sel=d.d;month=new Date(+d.d.slice(0,4),+d.d.slice(5,7)-1,1);draft={vols:[]};tab='cal';draw()}
+function editSrv(id){const s=S.srv.find(x=>x.id===id),alt=!RIT.slice(0,2).includes(s.rit);draft={id,d:s.d,from:s.from,to:s.to,p:s.place,e:s.ev,t:s.type,r:alt?RIT[2]:s.rit,o:alt?s.rit:'',rb:s.rimb||'',h:s.oraRit||'',q:s.req||'',cars:[...(s.cars||[])],nt:s.note||'',ct:ctOf(s)||'',vols:[...s.vols]};tab='nsrv';draw();scrollTo(0,0)}
 function wa(id){const s=S.srv.find(x=>x.id===id);open('https://wa.me/?text='+encodeURIComponent(`ANPS Milano – Servizio ${fmt(s.d)} ${s.from}-${s.to}\n${s.type}: ${s.ev||s.place}\nLuogo: ${s.place}\nRitrovo: ${s.rit}\nResponsabile: ${s.vols[0]}\nVolontari: ${s.vols.join(', ')}`))}
 function delSrv(id){if(confirm('Eliminare il servizio?'))rm(id)}
 let flt={v:'',t:'',from:Y+'-01-01',to:Y+'-12-31'};
@@ -319,15 +319,15 @@ const SVOLG=['Mattina','Pomeriggio','Intera giornata'];let dp={};
 function putP(p){if(db)db.collection('programmazione').doc(String(p.id)).set(p).catch(e=>alert(e.message));else{const i=S.prog.findIndex(x=>x.id===p.id);i<0?S.prog.push(p):S.prog[i]=p;save();draw()}}
 function rmP(id){if(!confirm('Eliminare il servizio da definire?'))return;if(db)db.collection('programmazione').doc(String(id)).delete();else{S.prog=S.prog.filter(p=>p.id!==id);save();draw()}}
 function keepP(q){if(!$('#frmP'))return;const g=i=>$('#'+i)?.value;Object.assign(dp,{d:g('pd'),t:g('pt'),s:g('ps'),p:g('pp'),e:g('pe'),n:g('pn'),nt:g('pnt')});if(!q)draw()}
-function addP(){keepP(true);if(!dp.d)return alert('Inserisci la data');putP({id:dp.id||Date.now(),d:dp.d,t:dp.t||TIPI[0],s:dp.s||SVOLG[0],p:dp.p||'',e:dp.e||'',n:Math.min(999,+dp.n||0),note:dp.nt||''});sel=dp.d;month=new Date(+dp.d.slice(0,4),+dp.d.slice(5,7)-1,1);dp={};draw()}
-function editP(id){const p=S.prog.find(x=>x.id===id);dp={id,d:p.d,t:p.t,s:p.s,p:p.p,e:p.e,n:p.n||'',nt:p.note||''};draw();$('#frmP').scrollIntoView()}
+function addP(){keepP(true);if(!dp.d)return alert('Inserisci la data');putP({id:dp.id||Date.now(),d:dp.d,t:dp.t||TIPI[0],s:dp.s||SVOLG[0],p:dp.p||'',e:dp.e||'',n:Math.min(999,+dp.n||0),note:dp.nt||''});sel=dp.d;month=new Date(+dp.d.slice(0,4),+dp.d.slice(5,7)-1,1);dp={};tab='cal';draw()}
+function editP(id){const p=S.prog.find(x=>x.id===id);dp={id,d:p.d,t:p.t,s:p.s,p:p.p,e:p.e,n:p.n||'',nt:p.note||''};tab='ndef';draw();scrollTo(0,0)}
 const progOn=k=>S.prog.some(p=>p.d===k&&p.d>=today);
 const progNote=()=>`<p style="margin:10px 0 0"><b>Servizio richiesto in attesa dei dati definitivi che verranno resi noti appena possibile.</b><br><span class="m">Il seguente messaggio non sostituisce l'ordine di servizio effettivo.</span></p>`;
 const noteBox=t=>t?`<div class="nb">📝 <b style="display:inline">Note di servizio</b><div>${esc(t).replace(/\n/g,'<br>')}</div></div>`:'';
 function progItem(p){return `<div class="srv"><b style="font-size:17px">📅 ${fmt(p.d)} · ${esc(p.s)}</b><b>${esc(p.t)}</b>${p.e?esc(p.e):''}<div class="m">📍 ${esc(p.p||'località da definire')}</div><div>Volontari richiesti: <b style="display:inline;font-size:16px">${p.n||'da definire'}</b></div>${noteBox(p.note)}${isAdm()?`<button class="pri" onclick="toSrv(${p.id})">➡️ Trasforma in servizio</button> <button onclick="editP(${p.id})">✏️ Modifica</button> <button class="del" onclick="rmP(${p.id})">Elimina</button>`:''}</div>`}
 function progDay(){const L=S.prog.filter(p=>p.d===sel&&p.d>=today);return L.length?`<div class="oh">Servizio in Programmazione da definire</div>${L.map(progItem).join('')}${progNote()}`:''}
 function progBox(){const L=S.prog.filter(p=>p.d>=today&&p.d!==sel).sort((a,b)=>a.d.localeCompare(b.d));if(!L.length&&progOn(sel))return'';return `<div class="card progbox"><div class="oh">Servizio in Programmazione da definire</div>${L.map(progItem).join('')||'<span class="m">Nessun servizio in programmazione.</span>'}${progNote()}</div>`}
-function formP(){const d=dp,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frmP"><h2>${d.id?'Modifica servizio da definire':'Nuovo servizio da definire'}</h2><div class="f">
+function formP(){const d=dp,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frmP"><h2>${d.id?'Modifica – Da definire':'Da definire'}</h2><div class="f">
 <div class="w rt"><label class="rr">Data<input type="date" id="pd" value="${d.d||today}" min="${d.id?'':today}"></label>
 <label class="rr">Incarico di Servizio<select id="pt">${sl(TIPI,d.t)}</select></label>
 <label class="rr">Svolgimento presunto<select id="ps">${sl(SVOLG,d.s)}</select></label>
@@ -335,16 +335,16 @@ function formP(){const d=dp,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>$
 <div class="w rt"><label class="rr">In località<input id="pp" value="${esc(d.p||'')}" placeholder="es. Parco Sempione"></label>
 <label class="rr">Funzioni di Servizio<input id="pe" value="${esc(d.e||'')}" placeholder="es. Servizio Antidegrado"></label></div>
 <label class="w">Note di servizio<textarea id="pnt" rows="3" placeholder="Istruzioni supplementari (facoltative)">${esc(d.nt||'')}</textarea></label>
-<div class="w"><button class="pri" onclick="addP()">Salva servizio da definire</button> ${d.id?'<button onclick="dp={};draw()">Annulla</button>':''}</div></div></div>`}
+<div class="w"><button class="pri" onclick="addP()">Salva servizio da definire</button> ${d.id?'<button onclick="dp={};tab=\'cal\';draw()">Annulla</button>':''}</div></div></div>`}
 function delP(id){if(db)db.collection('programmazione').doc(String(id)).delete();else{S.prog=S.prog.filter(p=>p.id!==id);save()}}
-function toSrv(id){const p=S.prog.find(x=>x.id===id),n=DEFS[p.t]||{},H={'Mattina':['08:00','13:00'],'Pomeriggio':['14:00','18:00'],'Intera giornata':['08:00','17:00']}[p.s]||['08:00','13:00'];draft={vols:[],d:p.d,t:p.t,p:p.p,e:p.e,q:n.q||'',rb:n.rb||'',from:H[0],to:H[1],nt:p.note||'',fromProg:id};draw();$('#frm').scrollIntoView()}
+function toSrv(id){const p=S.prog.find(x=>x.id===id),n=DEFS[p.t]||{},H={'Mattina':['08:00','13:00'],'Pomeriggio':['14:00','18:00'],'Intera giornata':['08:00','17:00']}[p.s]||['08:00','13:00'];draft={vols:[],d:p.d,t:p.t,p:p.p,e:p.e,q:n.q||'',rb:n.rb||'',from:H[0],to:H[1],nt:p.note||'',fromProg:id};tab='nsrv';draw();scrollTo(0,0)}
 /* ===== Riunioni, corsi, pranzi e cene ===== */
 const EVT=['Riunione','Corso'],EVCOL='#58a617';let de={};
 function putE(x){if(db)db.collection('eventi').doc(String(x.id)).set(x).catch(e=>alert(e.message));else{const i=S.ev.findIndex(y=>y.id===x.id);i<0?S.ev.push(x):S.ev[i]=x;save();draw()}}
 function rmE(id){if(!confirm('Eliminare questo incontro?'))return;if(db)db.collection('eventi').doc(String(id)).delete();else{S.ev=S.ev.filter(x=>x.id!==id);save();draw()}}
 function keepE(q){if(!$('#frmE'))return;const g=i=>$('#'+i)?.value;Object.assign(de,{d:g('ed'),t:g('et'),m:g('em'),p:g('ep'),h:g('eh'),h2:g('eh2'),nt:g('ent')});if(!q)draw()}
-function addE(){keepE(true);if(!de.d)return alert('Inserisci la data');if(!de.p)return alert('Inserisci il luogo');putE({id:de.id||Date.now(),d:de.d,t:de.t||EVT[0],m:de.m||'',p:de.p,h:de.h||'',h2:de.h2||'',all:!!de.all,note:de.nt||'',vols:[...(de.vols||[])]});sel=de.d;month=new Date(+de.d.slice(0,4),+de.d.slice(5,7)-1,1);de={};draw()}
-function editE(id){const x=S.ev.find(y=>y.id===id);de={...x,nt:x.note||'',vols:[...(x.vols||[])]};draw();$('#frmE').scrollIntoView()}
+function addE(){keepE(true);if(!de.d)return alert('Inserisci la data');if(!de.p)return alert('Inserisci il luogo');putE({id:de.id||Date.now(),d:de.d,t:de.t||EVT[0],m:de.m||'',p:de.p,h:de.h||'',h2:de.h2||'',all:!!de.all,note:de.nt||'',vols:[...(de.vols||[])]});sel=de.d;month=new Date(+de.d.slice(0,4),+de.d.slice(5,7)-1,1);de={};tab='cal';draw()}
+function editE(id){const x=S.ev.find(y=>y.id===id);de={...x,nt:x.note||'',vols:[...(x.vols||[])]};tab='ninc';draw();scrollTo(0,0)}
 const evOn=k=>S.ev.some(e=>e.d===k&&e.d>=today);
 function evDay(){return S.ev.filter(e=>e.d===sel&&e.d>=today).sort((a,b)=>(a.h||'').localeCompare(b.h||'')).map(e=>`<div class="oh" style="background:${EVCOL}">${esc(e.t)}</div><div class="srv"><b style="font-size:17px">📅 ${fmt(e.d)}${e.h?' · 🕒 ore '+e.h+(e.h2?' – '+e.h2:''):''}</b>${e.m?`<b>${esc(e.m)}</b>`:''}<div class="m">📍 ${esc(e.p)}</div><div>Partecipanti: ${e.all?'<b>Tutti i volontari</b>':((e.vols||[]).length?e.vols.map(v=>`<span class="tag ${v===user?'r':''}">${esc(v)}</span>`).join(''):'<span class="m">da definire</span>')}</div>${noteBox(e.note)}${isAdm()?`<button onclick="editE(${e.id})">✏️ Modifica</button> <button class="del" onclick="rmE(${e.id})">Elimina</button>`:''}</div>`).join('')}
 function formE(){const d=de,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>${t}</option>`).join('');return `<div class="card" id="frmE"><h2>${d.id?'Modifica incontro':'Nuovo incontro (riunione o corso)'}</h2><div class="f">
@@ -354,7 +354,7 @@ function formE(){const d=de,sl=(a,v)=>a.map(t=>`<option ${t===v?'selected':''}>$
 <label class="w">Note di servizio<textarea id="ent" rows="3" placeholder="Istruzioni supplementari (facoltative)">${esc(d.nt||'')}</textarea></label>
 <div class="w"><span class="m">Partecipanti</span><br>
 ${d.all?`<span class="tag r">✔ Tutti i volontari (${S.vol.length})</span> <button onclick="keepE(true);de.all=false;draw()">Scegli uno per uno</button>`:`${(d.vols||[]).map((v,i)=>`<span class="tag">${esc(v)} <a href="#" onclick="keepE(true);de.vols.splice(${i},1);draw();return false">✕</a></span>`).join('')}<br><select id="evp"><option value="">+ Aggiungi volontario</option>${S.vol.filter(v=>!(d.vols||[]).includes(v)).map(v=>`<option>${esc(v)}</option>`).join('')}</select> <button onclick="const x=$('#evp').value;keepE(true);if(x){(de.vols=de.vols||[]).push(x);draw()}">Aggiungi</button> <button onclick="keepE(true);de.all=true;draw()">👥 Tutti i volontari</button>`}</div>
-<div class="w"><button class="pri" onclick="addE()">Salva incontro</button> ${d.id?'<button onclick="de={};draw()">Annulla</button>':''}</div></div></div>`}
+<div class="w"><button class="pri" onclick="addE()">Salva incontro</button> ${d.id?'<button onclick="de={};tab=\'cal\';draw()">Annulla</button>':''}</div></div></div>`}
 /* ===== Confronto annuale e report di fine anno ===== */
 const TCOL={'Parchi':'#2e9e3f','Protezione Civile':'#e67e22','ASA':'#2f8fd8','Rappresentanza':'#7b3fa0','Safety & Security':'#c2185b','Altri servizi':'#7f8c8d'};
 let cmp={y:Y,mode:'same'};
