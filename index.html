@@ -85,7 +85,8 @@ function demoLogin(){$('#who').innerHTML='';$('#app').innerHTML=`<div class="car
 <button class="pri" onclick="if($('#lv').value){user=$('#lv').value;draw()}">Entra</button><hr>
 <input id="pin" type="password" placeholder="PIN amministratore"><button class="pri" onclick="if($('#pin').value===ADMIN_PIN){user='__admin';draw()}else alert('PIN errato')">Admin</button>
 <p class="m">Demo: PIN admin 1234</p></div>`}
-function draw(){if(!user)return login();if(isAdm()){freezePast();yrAutoRun()}if(user==='__pick')return pick();
+function draw(){const e=document.querySelector('.tw.big'),t=e?e.scrollTop:null,w=window.scrollY;draw0();if(t!==null){const e2=document.querySelector('.tw.big');if(e2){e2.scrollTop=t;scrollTo(0,w)}}}
+function draw0(){if(!user)return login();if(isAdm()){freezePast();yrAutoRun()}if(user==='__pick')return pick();
 $('#who').innerHTML=`<small>${isAdm()?'Amministratore':esc(user)}</small> <button onclick="out()">Esci</button>`;
 const tabs=[['cal','Calendario']].concat(isAdm()?[['nsrv','Nuovo servizio'],['ndef','Da definire'],['ninc','Nuovo incontro'],['old','Vecchio servizio'],['stat','Statistiche'],['conf','Confronto anno'],['conv','Convenzioni'],['parchi','Servizi Parchi'],['vol','Volontari']]:[]);
 $('#app').innerHTML=`<nav>${tabs.map(t=>`<button class="${tab===t[0]?'on':''}" onclick="tab='${t[0]}';draw()">${t[1]}</button>`).join('')}</nav><div id="v"></div>`;
