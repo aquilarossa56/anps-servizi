@@ -9,4 +9,4 @@ window.FIREBASE_CONFIG = {
   appId: "1:486297844259:web:dad8814b8b6dfc561e4f96"
 };
 // Email dell'amministratore (può essere più di una). Deve coincidere con firestore.rules
-window.ADMIN_EMAILS = ["aquilarossa56@gmail.com"];
+window.ADMIN_EMAILS = ["aquilarossa56@gmail.com","odv.assopolizia.mi@gmail.com"];
