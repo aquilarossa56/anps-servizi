@@ -191,12 +191,17 @@ const im=await pd.embedPng(await fetch(document.querySelector('header img').src)
 pg.drawText('ANPS Milano - Rendiconto servizi volontari',{x:110,y:782,size:15,font:B,color:bl});
 pg.drawText('Periodo: '+fmt(flt.from)+' - '+fmt(flt.to)+(flt.v?'  |  '+flt.v:'')+(flt.t?'  |  '+flt.t:'')+'  |  solo servizi già svolti',{x:110,y:764,size:9.5,font:F,color:tx});
 y=722;const rows=srows(),A=agg(rows),TH=n2(A.reduce((a,x)=>a+x[1].h,0)),TE=n2(A.reduce((a,x)=>a+x[1].e,0));
-const table=(cols,body,foot)=>{const x0=40,tw=cols.reduce((a,c)=>a+c[1],0),SZ=8.5;
+const table=(cols,body,foot,fl)=>{const x0=40,tw=cols.reduce((a,c)=>a+c[1],0),SZ=8.5;
 const hdr=()=>{pg.drawRectangle({x:x0,y:y-16,width:tw,height:18,color:bl});let x=x0;cols.forEach(c=>{pg.drawText(c[0],{x:x+4,y:y-11,size:SZ,font:B,color:rgb(1,1,1)});x+=c[1]});y-=18};
 const row=(cells,bold,fill)=>{const f=bold?B:F,L=cells.map((t,i)=>W(t,f,SZ,cols[i][1]-8)),n=Math.max(...L.map(l=>l.length)),hh=n*11+6;if(y-hh<60){np();hdr()}
 if(fill)pg.drawRectangle({x:x0,y:y-hh,width:tw,height:hh,color:fill});let x=x0;L.forEach((l,i)=>{l.forEach((t,k)=>pg.drawText(t,{x:x+4,y:y-11-k*11,size:SZ,font:f,color:tx}));x+=cols[i][1]});
 pg.drawLine({start:{x:x0,y:y-hh},end:{x:x0+tw,y:y-hh},thickness:.5,color:rgb(.8,.84,.9)});y-=hh};
-hdr();body.forEach((r,i)=>row(r,false,i%2?rgb(.95,.97,1):null));if(foot)row(foot,true,rgb(.88,.92,1))};
+hdr();body.forEach((r,i)=>row(r,false,(fl&&fl(i))||(i%2?rgb(.95,.97,1):null)));if(foot)row(foot,true,rgb(.88,.92,1))};
+{const yy=Y,LV=lowVols(yy),ex=new Set(LV.ex),cnt=S.vol.map(n=>({n,c:S.srv.filter(s=>s.vols.includes(n)).map(s=>eff(s,n)).filter(e=>e.d.startsWith(yy+'-')&&e.d<=today).length,ex:ex.has(n)})).sort((a,b)=>b.c-a.c||a.n.localeCompare(b.n));
+pg.drawText('Classifica servizi volontari - anno '+yy+' (servizi svolti)',{x:40,y,size:11,font:B,color:bl});y-=10;
+const YL=rgb(1,.93,.45),RD=rgb(1,.72,.72);pg.drawRectangle({x:40,y:y-9,width:9,height:9,color:YL,borderColor:tx,borderWidth:.4});pg.drawText('meno di 5 servizi',{x:53,y:y-8,size:8,font:F,color:tx});pg.drawRectangle({x:140,y:y-9,width:9,height:9,color:RD,borderColor:tx,borderWidth:.4});pg.drawText('nessun servizio',{x:153,y:y-8,size:8,font:F,color:tx});
+pg.drawText('(chi è iscritto dal 1° luglio non è evidenziato)',{x:240,y:y-8,size:7.5,font:F,color:rgb(.4,.45,.55)});y-=14;
+table([['N.',30],['Volontario',300],['Servizi '+yy,70],['Nota',115]],cnt.map((x,i)=>[String(i+1),x.n,String(x.c),x.ex?'iscritto nel secondo semestre':x.c===0?'nessun servizio':x.c<5?'meno di 5':'']),null,i=>{const x=cnt[i];return x.ex?null:x.c===0?RD:x.c<5?YL:null});np()}
 table([['Data',52],['Volontario',92],['Tipo',88],['Ore',32],['Rimborso',58],['Luogo / Manifestazione',193]],rows.map(r=>[fmt(r.s.d),r.v,r.s.type,String(hrs(r.s)),E(r.s.rimb||0),r.s.place+(r.s.ev?' - '+r.s.ev:'')]),['','','Totale',String(TH),E(TE),'']);
 {const TC=n2(rows.reduce((a,r)=>a+(r.s.contr||0),0)+convStat().reduce((a,x)=>a+x.q,0)),DF=n2(TC-TE);if(y<150)np();y-=16;pg.drawRectangle({x:40,y:y-62,width:515,height:68,color:rgb(.95,.97,1),borderColor:bl,borderWidth:.8});
 const ln=(l,s,c,k)=>{pg.drawText(l,{x:52,y:y-k,size:10,font:B,color:tx});pg.drawText(s,{x:543-B.widthOfTextAtSize(s,10),y:y-k,size:10,font:B,color:c})};
